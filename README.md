@@ -21,9 +21,9 @@ A snakemake pipeline for differential expression analysis using DESeq2. Raw RNA-
 
 ---
 ## To Do
-[ ] Flush out README
-[ ] Include DAG in README
-[ ] Write out conda envs in yml
-[ ] Copy snake files from original repo
-[ ] Move data over
-[ ] Copy python scripts and write out comments 
+- [ ] Flush out README
+- [ ] Include DAG in README
+- [ ] Write out conda envs in yml
+- [ ] Copy snake files from original repo
+- [ ] Move data over
+- [ ] Copy python scripts and write out comments 
