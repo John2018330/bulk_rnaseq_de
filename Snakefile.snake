@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+
+######################################################
+######      BULK RNASEQ SNAKEMAKE PIPELINE      ######
+######################################################
+##
+##	BF528 Project 1- An RNA-Seq pipeline for
+##	differential expression on Mouse cardiac tissue
+##
+
+
+################################
+####	DEFINE VARIABLES	####
+################################
+##
+## Useful variables for writing rules
+##
+
+## NAMES:		A list of file names
+NAMES = expand('{timepoints}{rep}_{read}',
+				timepoints = ['AD', 'P0', 'P4', 'P7'],
+				rep = ['rep1', 'rep2'],
+				read = ['R1', 'R2'])
+
+## SAMPLES:		A list of sample names (without the R1/R2 suffix)
+SAMPLES = expand('{timepoints}{rep}',
+			timepoints = ['AD', 'P0', 'P4', 'P7'],
+			rep = ['rep1', 'rep2'])
+
+
+## fa_fn:   		The genome fasta (to be created in rule `get_genome`
+fa_fn 	    		= 'results/ncbi_dataset/data/GCF_000001635.27/GCF_000001635.27_GRCm39_genomic.fna'
+
+## gff_fn:	    	The annotation file for the mouse genome (gtf)
+gff_fn 			= 'results/ncbi_dataset/data/GCF_000001635.27/genomic.gtf'
+
+## GRCm39_index:	The index folder created by rule `star_index`
+GRCm39_index 		= 'results/m39_STAR/'
+
+
+
+##############################
+####	PIPELINE RULES    ####
+##############################
+##
+## Collection of pipeline rules
+##
+
+
+##
+##  RULE ALL
+##
+rule all:
+	input:
+		'results/multiqc_report.html',					# MultiQC report 
+
+
+
+
+##
+## RULE FASTQC
+##
+rule fastqc:
+	threads: 4
+	conda: 'envs/fastqc_env.yml'
+
+	input:
+		'samples/{file}.fastq.gz',
+
+	output:
+		'results/fastqc/{file}_fastqc.zip',
+		'results/fastqc/{file}_fastqc.html'
+		
+	params:
+		outdir = 'results/fastqc/'
+
+	shell:
+		'''
+		fastqc -o {params.outdir} {input} -t {threads}
+		'''
+
+##
+## RULE MULTIQC
+##
+rule multiqc:
+	conda: 'envs/multiqc_env.yml'
+
+	input:
+		expand('results/fastqc/{names}_fastqc.zip', names=NAMES)
+	
+	output:
+		'results/multiqc_report.html'
+	
+	params:
+		outdir = 'results/'
+	
+	shell:
+		'''
+		multiqc {input} -o {params.outdir} -f
+		'''
