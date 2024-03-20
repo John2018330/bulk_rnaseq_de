@@ -1,8 +1,7 @@
 # BF528 Project 1 Bulk RNA-Seq DE
 !! Work in Progress !!
 
-Johnathan Zhang
-jzy0986@bu.edu
+Johnathan Zhang (jzy0986@bu.edu)
 
 
 A snakemake pipeline for differential expression analysis using DESeq2. Raw RNA-Seq reads obtained from the following article: [Transcriptional Reversion of Cardiac Myocyte Fate During Mammalian Cardiac Regeneration](https://pubmed.ncbi.nlm.nih.gov/25477501/). 
@@ -37,13 +36,10 @@ We can also elect to extract gene symbols or gene ID's from the annotation file,
 ### Counts Matrix 
 Custom python scripts are used to combine all of the verse output files (`scripts/concat_df.py`) and filter the matrix to remove genes that have 0 counts across all samples (`scripts/filter_cts_mat.py`)
 
----
-Both DE and fGSEA R analyses can be found in `differential_expression.Rmd`
-
 ### Differential Expression
 To perform Differential Expression Analyses, utilize [R](https://www.r-project.org/) and Bioconductor's [DESeq2](https://bioconductor.org/packages/release/bioc/html/DESeq2.html) package.
 
 ### Gene Set Enrichment Analysis
 After generating results from DESeq2, we can perform GSEA using Bioconductor's [fGSEA](https://bioconductor.org/packages/release/bioc/html/fgsea.html) package. As a part of this project, we analyze the Canonical Pathways (C2) collection from MSIGDB. 
 
-
+Both DE and fGSEA R analyses can be found in `differential_expression.Rmd`
