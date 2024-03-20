@@ -10,7 +10,7 @@
 
 
 ################################
-####	DEFINE VARIABLES	####
+####	DEFINE VARIABLES    ####
 ################################
 ##
 ## Useful variables for writing rules
@@ -52,11 +52,18 @@ GRCm39_index 		= 'results/m39_STAR/'
 ##
 rule all:
 	input:
+            # Quality control
             'results/multiqc_report.html',				    # MultiQC report 
+            
+            # Read alignment and mapping
             fa_fn,                                                          # Mouse Genome Fasta m39
             gtf_fn,                                                         # Annotation File (GTF)
             expand('results/align_flagstat/{sample}_align.stats',           # STAR Alignment flagstat 
-                    sample=SAMPLES)
+                    sample=SAMPLES),
+
+            # Counts generation
+            'results/verse_counts/filtered_matrix.csv',                     # Filtered counts matrix
+            'results/map_file.csv'                                          # Mapping file of gene ID/gene symbol
 
 
 
@@ -219,6 +226,17 @@ rule star_align:
         '''
 
 
+## ----------------------
+## RULE SAMTOOLS FLAGSTAT
+## ----------------------
+##      Use samtools to generate summary statistics
+##      about the alignment for each sample
+##
+##      Input:
+##          - Alignment BAM produced from STAR
+##
+##      Output:
+##          - Flagstat file for each sample
 
 rule samtools_flagstat:
     conda: 'envs/samtools_env.yml'
@@ -233,3 +251,126 @@ rule samtools_flagstat:
         '''
         samtools flagstats {input} > {output}
 	'''
+
+
+## ----------
+## RULE VERSE
+## ----------
+##      Use verse to quantify mRNA amounts for each
+##      gene in each sample
+##
+##      Input:
+##          - Alignment BAM produced from STAR
+##
+##      Output:
+##          - summary:          summary file of counts
+##          - sample_counts:    counts file two columns, gene ID and count
+
+rule verse:
+    conda:  'envs/verse_env.yml'
+
+    input:
+        bam = 'results/aligned/{sample}_Aligned.out.bam'
+
+    output:
+        summary         = 'results/verse_counts/{sample}.exon.summary.txt',
+        sample_counts   = 'results/verse_counts/{sample}.exon.txt'
+
+    params:
+        annot               = 'results/ncbi_dataset/data/GCF_000001635.27/genomic.gtf',
+        feat_type           = 'exon',
+        gene_identifier     = 'gene_id',
+        outdir              = 'results/verse_counts'
+
+    shell:
+        '''
+        verse -a {params.annot} -t {params.feat_type} -g {params.gene_identifier} -o {params.outdir}/{wildcards.sample} -T 4 {input.bam}
+        '''
+
+
+## --------------
+## RULE CONCAT DF
+## --------------
+##      Use custom python script concat_df.py to combine
+##      all verse output counts files into one large matrix
+##
+##      Input:
+##          - all_counts:       list of all verse files produced
+##
+##      Output:
+##          - counts_csv:       a counts matrix as csv
+
+rule concat_df:
+    input:
+        all_counts      = expand('results/verse_counts/{sample}.exon.txt',
+                                sample = SAMPLES)
+    
+    output:
+        counts_csv      = 'results/verse_counts/counts_matrix.csv'
+
+    params:
+        concat_script   = 'scripts/concat_df.py'
+
+    shell:
+        '''
+        python {params.concat_script} -i {input.all_counts} -o {output.counts_csv}
+        '''
+
+
+## -----------------
+## RULE GENE MAPPING
+## -----------------
+##      Use custom python script parse_gtf to extract
+##      information needed for gene mapping
+##      NOTE THIS STEP IS NO LONGER NEEDED AS VERSE CAN DIRECTLY
+##      EXTRACT GENE NAMES
+##
+##      Input: 
+##          - gtf:          mouse genome m39 annotation file
+##
+##      Output:
+##          - map_file:     csv containing two columns, one of gene ID's
+##                          and one of gene names
+
+rule gene_mapping:
+    input:
+        gtf             = 'results/ncbi_dataset/data/GCF_000001635.27/genomic.gtf',
+
+    output:
+        map_file        = 'results/map_file.csv'
+
+    params:
+        map_script      = 'scripts/parse_gtf.py'
+
+    shell:
+        '''
+        python {params.map_script} -i {input.gtf} -o {output.map_file}
+        '''
+
+
+## ------------------
+## RULE FILTER COUNTS
+## ------------------
+##      Use custom python script filter_cts_mat.py to 
+##      filter the counts matrix and remove genes with no counts
+##
+##      Input: 
+##          - raw_counts:           raw counts matrix from rule concat_df
+##
+##      Output:
+##          - filtered_counts:      filtered counts matrix
+
+rule filter_counts:
+    input:
+        raw_counts          = 'results/verse_counts/counts_matrix.csv'
+
+    output:
+        filtered_counts     = 'results/verse_counts/filtered_matrix.csv'
+
+    params:
+        filter_script 	    = 'scripts/filter_cts_mat.py'
+    
+    shell:
+        '''
+        python {params.filter_script} -i {input.raw_counts} -o {output.filtered_counts}
+        '''
