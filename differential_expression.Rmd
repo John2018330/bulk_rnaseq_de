@@ -1,0 +1,164 @@
+---
+title: "Differential Expression using DESeq2"
+output: html_document
+---
+Before conducting a DE analysis in R, load in the required packages.
+``` {r echo = T, results = 'hide'}
+library(DESeq2)
+library(tidyverse)
+library(fgsea)
+```
+
+## Reading in data and setting up DESeq2 inputs
+DESeq2 requires a counts matrix and a dataframe `colData` that contains information about which samples belong to what experimental groups. 
+
+Load in filtered counts matrix `filtered_counts.csv` produced from week3.snake found in `./results/verse_counts/` folder.
+
+``` {r}
+raw_filtered_counts   <- 
+  as.matrix(read.csv('results/verse_counts/filtered_matrix.csv', row.names = 1))
+#filtered_counts_ADP0  <- raw_filtered_counts[,c("ADrep1", "ADrep2", "P0rep1", "P0rep2")]
+#raw_filtered_counts[, c(2:9)] <-
+#  sapply(raw_filtered_counts[, c(2:9)], as.numeric)
+
+sample_names_vector <- colnames(raw_filtered_counts)
+timepoint_vector    <- as.factor(substr(sample_names_vector, start = 1, stop = 2))
+colData             <- data.frame(timepoint_vector, row.names = sample_names_vector)
+colnames(colData)   <- 'timepoint'
+colData$timepoint   <- relevel(colData$timepoint, ref = 'P0')
+```
+
+``` {r}
+head(raw_filtered_counts)
+```
+``` {r}
+colData
+```
+``` {r}
+dds <- DESeqDataSetFromMatrix(countData = raw_filtered_counts,
+                              colData   = colData,
+                              design    = ~ timepoint)
+```
+
+``` {r}
+dds <- DESeq(dds)
+res <- as_tibble(results(dds, contrast = c('timepoint', 'AD', 'P0')), rownames = 'Gene')
+```
+
+``` {r}
+head(res)
+```
+
+## GSEA
+Ranked list for gsea
+``` {r}
+res <- res %>% 
+  mutate(rank_l2fc = rank(log2FoldChange, ties.method='random')) %>%
+  arrange(rank_l2fc)
+
+ranked_genes        <- res$Gene
+ranked_l2fc         <- res$log2FoldChange
+ranked_list         <- stats::setNames(ranked_l2fc, ranked_genes)
+```
+
+``` {r}
+c2_geneset                 <- fgsea::gmtPathways('m2.all.v2023.2.Mm.symbols.gmt')
+fgsea_results              <- fgsea(c2_geneset, ranked_list, minSize = 15, maxSize = 500)
+fgsea_results$leadingEdge  <- lapply(fgsea_results$leadingEdge, paste0, collapse=',')
+fgsea_results$leadingEdge  <- as.character(fgsea_results$leadingEdge)
+```
+
+``` {r}
+fgsea_results <- fgsea_results %>%
+    arrange(NES)
+
+head(fgsea_results)
+tail(fgsea_results)
+```
+
+
+
+
+## Recreate figure 1D
+
+``` {r}
+normalized_counts <- as_tibble(counts(dds, normalized=TRUE), rownames = 'Gene')
+```
+
+``` {r}
+# Given sample name, generate average counts for genes from all samples
+# Returns single column of gene count averages
+
+sample_avg_from_counts <- function(sample_name, counts_tibble) {
+    average_count_column <- counts_tibble %>%
+      mutate(gene_mean = rowMeans(across(starts_with(sample_name)))) %>%
+      pull(gene_mean) %>%
+      
+
+    return (average_count_column)
+}
+
+```
+
+``` {r}
+sarcomere_genes      <- c('Pdlim5', 'Pygm', 'Myoz2', 'Des', 'Csrp3', 'Tcap', 'Cryab')
+mitochondria_genes   <- c('Mpc1', 'Prdx3', 'Acat1', 'Echs1', 'Slc25a11', 'Phyh')
+cell_cycle_genes     <- c('Cdc7', 'E2f8', 'Cdk7', 'Cdc26', 'Cdc6', 'E2f1', 'Cdc27', 
+                          'Bora', 'Cdc45', 'Rad51', 'Aurkb', 'Cdc23')
+
+
+sarcomere_data     <- normalized_counts %>%
+    mutate(AD = sample_avg_from_counts('AD', normalized_counts)) %>%
+    mutate(P0 = sample_avg_from_counts('P0', normalized_counts)) %>%
+    mutate(P4 = sample_avg_from_counts('P4', normalized_counts)) %>%
+    mutate(P7 = sample_avg_from_counts('P7', normalized_counts)) %>%
+    filter(Gene %in% sarcomere_genes) %>% 
+    select(Gene, AD, P0, P4, P7) %>%  
+    pivot_longer(!Gene, names_to = 'timepoint', values_to = 'count')
+    
+
+mitochondria_data  <- normalized_counts %>%
+    mutate(AD = sample_avg_from_counts('AD', normalized_counts)) %>%
+    mutate(P0 = sample_avg_from_counts('P0', normalized_counts)) %>%
+    mutate(P4 = sample_avg_from_counts('P4', normalized_counts)) %>%
+    mutate(P7 = sample_avg_from_counts('P7', normalized_counts)) %>%
+    filter(Gene %in% mitochondria_genes) %>%
+    select(Gene, AD, P0, P4, P7) %>%  
+    pivot_longer(!Gene, names_to = 'timepoint', values_to = 'count')
+
+
+cell_cycle_data    <- normalized_counts %>%
+    mutate(AD = sample_avg_from_counts('AD', normalized_counts)) %>%
+    mutate(P0 = sample_avg_from_counts('P0', normalized_counts)) %>%
+    mutate(P4 = sample_avg_from_counts('P4', normalized_counts)) %>%
+    mutate(P7 = sample_avg_from_counts('P7', normalized_counts)) %>%
+    filter(Gene %in% cell_cycle_genes) %>%
+    select(Gene, AD, P0, P4, P7) %>%  
+    pivot_longer(!Gene, names_to = 'timepoint', values_to = 'count')
+```
+
+``` {r}
+timepoint_order   <- c("P0", "P4", "P7", "AD")
+sarcomere_plot <- ggplot(sarcomere_data, aes(x=timepoint, y=count, group=Gene)) + 
+  geom_line(aes(x = factor(timepoint, level = timepoint_order), color=Gene)) + 
+  ggtitle('Sarcomere') +
+  theme_classic()
+
+mitochondria_plot <- ggplot(mitochondria_data, aes(x=timepoint, y=count, group=Gene)) + 
+  geom_line(aes(x = factor(timepoint, level = timepoint_order), color=Gene)) + 
+  ggtitle('Mitochondria') +
+  theme_classic()
+
+cell_cycle_plot   <- ggplot(cell_cycle_data, aes(x=timepoint, y=count, group=Gene)) + 
+  geom_line(aes(x = factor(timepoint, level = timepoint_order), color=Gene)) + 
+  ggtitle('Cell Cycle') +
+  theme_classic()  
+
+
+sarcomere_plot
+mitochondria_plot
+cell_cycle_plot
+
+```
+
+
