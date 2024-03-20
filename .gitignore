@@ -1,3 +1,4 @@
 samples/
 .snakemake/
 snakejob*
+results/
