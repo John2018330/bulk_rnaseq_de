@@ -1,8 +1,8 @@
 # BF528 Project 1 Bulk RNA-Seq DE
-!! Work in Progress !!
 
 Johnathan Zhang (jzy0986@bu.edu)
 
+In depth discussion and report found in `report/discussion_questions.html``
 
 A snakemake pipeline for differential expression analysis using DESeq2. Raw RNA-Seq reads obtained from the following article: [Transcriptional Reversion of Cardiac Myocyte Fate During Mammalian Cardiac Regeneration](https://pubmed.ncbi.nlm.nih.gov/25477501/). 
 
