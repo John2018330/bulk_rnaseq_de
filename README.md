@@ -12,6 +12,13 @@ The objective of this project was to perform differential expression and gene se
 Additionally, recreate figure 1D from the article using these time points as well. 
 In terms of learning objectives, this project shows how to use Snakemake to streamline a typical RNA-Seq pipeline, utilize conda environments within workflow managers, and submitting workflows to HPCs
 
+### Software
+- [FastQC 0.12.1-0](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+- [MultiQC 1.20](https://multiqc.info/)
+- [STAR 2.7.11b](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3530905/)
+- [samtools 1.19.2](https://www.htslib.org/)
+- [verse 0.1.5](https://kim.bio.upenn.edu/software/verse.shtml#:~:text=A%20versatile%20and%20efficient%20RNA,computing%20the%20same%20gene%20counts.)
+- Custom python scripts found in `scripts`
 
 ## Workflow Outline
 ### Quality Control
